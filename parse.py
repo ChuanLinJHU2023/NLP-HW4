@@ -86,12 +86,6 @@ class EarleyChart:
                 break
         return final_item
 
-
-    def process_final_item(self, final_item):
-        assert final_item is not None
-        prob = 2 ** (-self.cols[-1].find_tip_for_item(final_item).weight)
-        return prob
-
     def _run_earley(self) -> None:
         """Fill in the Earley chart."""
         # Initially empty column for each position in sentence
@@ -190,6 +184,29 @@ class EarleyChart:
 
                 log.debug(f"\tAttached to get: {new_item} in column {position}")
                 self.profile["ATTACH"] += 1
+
+    def find_tip_for_item_globally(self, item: Item) -> Tip:
+        for agenda in self.cols:
+            if item in agenda.all():
+                return agenda.find_tip_for_item(item)
+        raise ValueError
+
+    def pretty_print_item(self, item: Item):
+        tip = self.find_tip_for_item_globally(item)
+        assert item.dot_position == len(item.rule.rhs) == len(tip.backpointers)
+        lhs = item.rule.lhs
+        result = "(" + f" {lhs}"
+        for i in range(len(item.rule.rhs)):
+            symbol = item.rule.rhs[i]
+            if not self.grammar.is_nonterminal(symbol):
+                result += f" {symbol}"
+            else:
+                item_for_symbol = tip.backpointers[i]
+                assert item_for_symbol.rule.lhs == symbol
+                result += f" {self.pretty_print_item(item_for_symbol)}"
+        result += ")"
+        return result
+
 
 # A dataclass is a class that provides some useful defaults for you. If you define
 # the data that the class should hold, it will automatically make things like an
@@ -465,15 +482,14 @@ def main():
                 log.debug("=" * 70)
                 log.debug(f"Parsing sentence: {sentence}")
                 chart = EarleyChart(sentence.split(), grammar, progress=args.progress)
-
                 final_item = chart.accepted_with_item()
                 print(sentence)
                 if final_item is None:
                     print("This sentence is rejected!")
                 else:
+                    print(chart.pretty_print_item(final_item))
                     print(f"This sentence is accepted with prob {weight_to_prob(chart.cols[-1].find_tip_for_item(final_item).weight)}")
                     print(f"This sentence is accepted with weight {chart.cols[-1].find_tip_for_item(final_item).weight}")
-
                 print()
 
 if __name__ == "__main__":
