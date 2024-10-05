@@ -2,3 +2,6 @@
 ./recognize.py papa.gr papa.sen
 ./parse.py -v papa.gr papa.sen
 ./parse.py arith.gr arith.sen
+./parse.py arith.gr arith2.sen
+./parse.py papa.gr papa2.sen
+

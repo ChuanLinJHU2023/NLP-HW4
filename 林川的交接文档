@@ -1,0 +1,15 @@
+parse.py已经完成，但是存在parse tree的打印上的问题（重复打印
+how_to_use_parse_py里面有一些使用parse.py的示范
+下面是parse.py的主要思路，这里的讲解默认你已经读完了老师的recognize.py
+recognize.py的item类型即dotted_rule
+用于parse时，item的主要问题在于其中没有backpointers以及weight
+与其修改item类别使其拥有backpointers以及weight 不如新建一个类别tip
+并给每个item贴上一个tip
+这种思路可以最大可能地保留recognize.py的代码而尽可能少的修改
+每次push一个item时执行函数update_tip_for_item来给item贴标签tip
+
+在recognize.py中，如果往一个agenda里面push一个已有的item，那么什么事情都不会发生
+但是在parse.py中，如果往一个agenda里面push一个已有的item且给这个已有的item贴上了新的更优tip，那么这个item需要move down和reprocess
+move down和reprocess的概念见作业文档附录B2
+
+
