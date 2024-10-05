@@ -73,7 +73,7 @@ class EarleyChart:
         self.cols: List[Agenda]
         self._run_earley()  # run Earley's algorithm to construct self.cols
 
-    def accepted(self) -> Union[None, Item]:
+    def accepted_with_item(self) -> Union[None, Item]:
         """Was the sentence accepted?
         That is, does the finished chart contain an item corresponding to a parse of the sentence?
         This method answers the recognition question, but not the parsing question."""
@@ -112,7 +112,7 @@ class EarleyChart:
             log.debug(f"Processing items in column {i}")
             while column:  # while agenda isn't empty
                 item = column.pop()  # dequeue the next unprocessed item
-                next = item.next_symbol();
+                next = item.next_symbol()
                 if next is None:
                     # Attach this complete constituent to its customers
                     log.debug(f"{item} => ATTACH")
@@ -264,7 +264,7 @@ class Tip:
     """
     def __init__(self, item) -> None:
         self.item: Item = item    # For what item are we initializing this tip?
-        self.weight: int = None
+        self.weight: Union[int, None] = None
         self.backpointers: list[Backpointer] = list()
 
     def initialize_when_predict(self):
@@ -275,18 +275,19 @@ class Tip:
     def initialize_when_scan(self, tip_of_scanned_item : Tip):
         # In this case, self.item is an item added to agenda by scan
         self.weight = tip_of_scanned_item.weight
-        self.backpointers = tip_of_scanned_item.backpointers + [None]
+        self.backpointers = tip_of_scanned_item.backpointers + [None] # The backpointer for a terminal is just a None
         assert len(self.backpointers) == self.item.dot_position
 
     def initialize_when_attach(self, tip_of_attachment_item : Tip, tip_of_customer_item: Tip):
         # In this case, self.item is an item added to agenda by attach
+        assert len(tip_of_attachment_item.item.rule.rhs) == tip_of_attachment_item.item.dot_position == len(tip_of_attachment_item.backpointers) # assure that attachment item is complete
         self.weight = tip_of_customer_item.weight + tip_of_attachment_item.weight
-        self.backpointers = tip_of_customer_item.backpointers + [tip_of_attachment_item.item]
+        self.backpointers = tip_of_customer_item.backpointers + [tip_of_attachment_item.item] # The backpointer for a non-terminal is a item that is complete
         assert len(self.backpointers) == self.item.dot_position
 
 def move_down(lst, i):
     """
-    This is move down
+    Move down the i-th element of the lst
     >>> lst = [5,8,7,2,3,10]
     >>> move_down(lst,2)
     [5, 8, 2, 3, 10, 7]
@@ -388,23 +389,33 @@ class Agenda:
         assert item in self._index
         if_old_item_with_worse_weight = False
         if item not in self._tips:
-            self._tips[item] = tip
+            self._tips[item] = tip  # Create the tip for existing item
         else:
             old_tip = self._tips[item]
             if tip.weight < old_tip.weight:
-                self._tips[item] = tip
+                self._tips[item] = tip # Renew the tip for existing item
                 if_old_item_with_worse_weight = True
+        assert len(self._index) == len(self._items)
         return if_old_item_with_worse_weight
 
     def move_down_item(self, item: Item):
+        # ******Move Down an Item For Reprocessing******* See B.2 for what is reprocessing!!
+        # Remember that self._next is the index of first item that has not yet been popped
+        log.debug(f"We are moving down an item {item}")
+        log.debug(f"Before move-down, the index of items are: {self._index}")
+        log.debug(f"Before move-down, the index of first not-popped item is: {self._next}")
         assert item in self._index
         assert self._index[item] < self._next
         index = self._index[item]
         move_down(self._items, index)
         for item_ in self._index:
-            if not self._index[item_]<index:
+            if self._index[item_] > index:
                 self._index[item_] -= 1
         self._index[item] = len(self._items) - 1
+        self._next -= 1 # We need to move up the pointer!
+        assert len(self._index) == len(self._items)
+        log.debug(f"After move-down, the index of items are: {self._index}")
+        log.debug(f"After move-down, the index of first not-popped item : {self._next}")
 
     def find_tip_for_item(self, item: Item) -> Tip:
         assert item in self._tips
@@ -452,9 +463,10 @@ class Grammar:
         """Is symbol a nonterminal symbol?"""
         return symbol in self._expansions
 
-
-
-
+def weight_to_prob(weight):
+    prob = 2**(-weight)
+    assert prob>=0 and prob<=1
+    return prob
 
 def main():
     # Parse the command-line arguments
@@ -471,11 +483,12 @@ def main():
                 log.debug("=" * 70)
                 log.debug(f"Parsing sentence: {sentence}")
                 chart = EarleyChart(sentence.split(), grammar, progress=args.progress)
-                # print the result
-                print(
-                    f"'{sentence}' is {'accepted' if chart.accepted() else 'rejected'} by {args.grammar}"
-                )
-                log.debug(f"Profile of work done: {chart.profile}")
+
+                final_item = chart.accepted_with_item()
+                if final_item is None:
+                    print("This sentence is rejected!")
+                else:
+                    print(f"This sentence is accepted with prob {weight_to_prob(chart.cols[-1].find_tip_for_item(final_item).weight)}")
 
 
 if __name__ == "__main__":
