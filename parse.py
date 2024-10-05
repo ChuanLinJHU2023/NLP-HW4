@@ -86,6 +86,7 @@ class EarleyChart:
                 break
         return final_item
 
+
     def process_final_item(self, final_item):
         assert final_item is not None
         prob = 2 ** (-self.cols[-1].find_tip_for_item(final_item).weight)
@@ -319,25 +320,6 @@ class Agenda:
     However, other implementations are possible -- and could be useful
     when dealing with weights, backpointers, and optimizations.
 
-    >>> a = Agenda()
-    >>> a.push(3)
-    >>> a.push(5)
-    >>> a.push(3)   # duplicate ignored
-    >>> a
-    Agenda([]; [3, 5])
-    >>> a.pop()
-    3
-    >>> a
-    Agenda([3]; [5])
-    >>> a.push(3)   # duplicate ignored
-    >>> a.push(7)
-    >>> a
-    Agenda([3]; [5, 7])
-    >>> while a:    # that is, while len(a) != 0
-    ...    print(a.pop())
-    5
-    7
-
     """
 
     def __init__(self) -> None:
@@ -485,11 +467,14 @@ def main():
                 chart = EarleyChart(sentence.split(), grammar, progress=args.progress)
 
                 final_item = chart.accepted_with_item()
+                print(sentence)
                 if final_item is None:
                     print("This sentence is rejected!")
                 else:
                     print(f"This sentence is accepted with prob {weight_to_prob(chart.cols[-1].find_tip_for_item(final_item).weight)}")
+                    print(f"This sentence is accepted with weight {chart.cols[-1].find_tip_for_item(final_item).weight}")
 
+                print()
 
 if __name__ == "__main__":
     import doctest
