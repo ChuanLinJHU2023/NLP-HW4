@@ -176,7 +176,7 @@ class EarleyChart:
                 new_tip = Tip(new_item)
                 tip_of_attachment_item = self.cols[position].find_tip_for_item(item)
                 tip_of_customer_item = self.cols[mid].find_tip_for_item(customer)
-                new_tip.initialize_when_attach(tip_of_attachment_item, tip_of_customer_item)
+                new_tip.initialize_when_attach(tip_of_attachment_item, tip_of_customer_item, position)
                 if_old_item_with_worse_weight = self.cols[position].update_tip_for_item(new_item, new_tip)
 
                 if if_old_item_exists and if_old_item_with_worse_weight:
@@ -185,25 +185,32 @@ class EarleyChart:
                 log.debug(f"\tAttached to get: {new_item} in column {position}")
                 self.profile["ATTACH"] += 1
 
-    def find_tip_for_item_globally(self, item: Item) -> Tip:
-        for agenda in self.cols:
+    def find_tip_for_item_globally(self, item: Item, postion: Optional[int] = None) -> Tip:
+        if postion is not None:
+            agenda = self.cols[postion]
             if item in agenda.all():
                 return agenda.find_tip_for_item(item)
+        else:
+            for i, agenda in enumerate(self.cols[::-1]):
+                if item in agenda.all():
+                    return agenda.find_tip_for_item(item)
         raise ValueError
 
-    def pretty_print_item(self, item: Item):
-        tip = self.find_tip_for_item_globally(item)
+    def pretty_print_item(self, item: Item, position: Optional[int] = None) -> str:
+        tip = self.find_tip_for_item_globally(item, position)
         assert item.dot_position == len(item.rule.rhs) == len(tip.backpointers)
         lhs = item.rule.lhs
         result = "(" + f" {lhs}"
         for i in range(len(item.rule.rhs)):
             symbol = item.rule.rhs[i]
             if not self.grammar.is_nonterminal(symbol):
+                # Terminal
                 result += f" {symbol}"
             else:
-                item_for_symbol = tip.backpointers[i]
+                # Nonterminal, print recursively
+                item_for_symbol, pos = tip.backpointers[i]
                 assert item_for_symbol.rule.lhs == symbol
-                result += f" {self.pretty_print_item(item_for_symbol)}"
+                result += f" {self.pretty_print_item(item_for_symbol, pos)}"
         result += ")"
         return result
 
@@ -273,7 +280,7 @@ class Item:
         dotted_rule = f"{self.rule.lhs} → {' '.join(rhs)}"
         return f"({self.start_position}, {dotted_rule})"  # matches notation on slides
 
-Backpointer = Union[Item, None]
+Backpointer = Optional[Tuple[Item, int]]
 
 class Tip:
     """
@@ -296,11 +303,11 @@ class Tip:
         self.backpointers = tip_of_scanned_item.backpointers + [None] # The backpointer for a terminal is just a None
         assert len(self.backpointers) == self.item.dot_position
 
-    def initialize_when_attach(self, tip_of_attachment_item : Tip, tip_of_customer_item: Tip):
+    def initialize_when_attach(self, tip_of_attachment_item : Tip, tip_of_customer_item: Tip, position: int):
         # In this case, self.item is an item added to agenda by attach
         assert len(tip_of_attachment_item.item.rule.rhs) == tip_of_attachment_item.item.dot_position == len(tip_of_attachment_item.backpointers) # assure that attachment item is complete
         self.weight = tip_of_customer_item.weight + tip_of_attachment_item.weight
-        self.backpointers = tip_of_customer_item.backpointers + [tip_of_attachment_item.item] # The backpointer for a non-terminal is a item that is complete
+        self.backpointers = tip_of_customer_item.backpointers + [(tip_of_attachment_item.item, position)] # The backpointer for a non-terminal is a item that is complete
         assert len(self.backpointers) == self.item.dot_position
 
 def move_down(lst, i):
@@ -483,13 +490,13 @@ def main():
                 log.debug(f"Parsing sentence: {sentence}")
                 chart = EarleyChart(sentence.split(), grammar, progress=args.progress)
                 final_item = chart.accepted_with_item()
-                print(sentence)
+                log.info(sentence)
                 if final_item is None:
-                    print("This sentence is rejected!")
+                    log.info("This sentence is rejected!")
                 else:
                     print(chart.pretty_print_item(final_item))
-                    print(f"This sentence is accepted with prob {weight_to_prob(chart.cols[-1].find_tip_for_item(final_item).weight)}")
-                    print(f"This sentence is accepted with weight {chart.cols[-1].find_tip_for_item(final_item).weight}")
+                    log.info(f"This sentence is accepted with prob {weight_to_prob(chart.cols[-1].find_tip_for_item(final_item).weight)}")
+                    log.info(f"This sentence is accepted with weight {chart.cols[-1].find_tip_for_item(final_item).weight}")
                 print()
 
 if __name__ == "__main__":
