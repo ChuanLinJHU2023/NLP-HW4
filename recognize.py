@@ -67,7 +67,6 @@ class EarleyChart:
         self.grammar = grammar
         self.progress = progress
         self.profile: CounterType[str] = Counter()
-
         self.cols: List[Agenda]
         self._run_earley()    # run Earley's algorithm to construct self.cols
 
@@ -233,6 +232,7 @@ class Agenda:
         """Provide a human-readable string REPResentation of this Agenda."""
         next = self._next
         return f"{self.__class__.__name__}({self._items[:next]}; {self._items[next:]})"
+
 
 class Grammar:
     """Represents a weighted context-free grammar."""

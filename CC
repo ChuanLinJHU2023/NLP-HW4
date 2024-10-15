@@ -1,0 +1,3 @@
+if_old_item_with_worse_weight
+if_old_item_exists
+prob = 2**(-self.cols[-1].find_tip_for_item(item).weight)

@@ -10,6 +10,7 @@ First try out the recognizer that we provided.
 
 	./recognize.py papa.gr papa.sen
 	./recognize.py -v papa.gr papa.sen    # verbose output
+    ./recognize.py papa.gr papa.sen | ./prettyprint
 
 Copy the program `recognize.py` to `parse.py`.
 Then edit `parse.py` to transform our unweighted recognizer 
