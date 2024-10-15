@@ -7,8 +7,10 @@ a = obj(1,2)
 b = obj(1,2)
 c = [b,5]
 print(a in c)
+# False
 
 a = [1,2]
 b = [1,2]
 c = [b,5]
 print(a in c)
+# True

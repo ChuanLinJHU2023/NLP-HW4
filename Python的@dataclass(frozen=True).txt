@@ -1,0 +1,44 @@
+class obj:
+    def __init__(self,a,b):
+        self.a = a
+        self.b = b
+
+a = obj(1,2)
+b = obj(1,2)
+c = [b,5]
+print(a in c)
+# False
+
+a = [1,2]
+b = [1,2]
+c = [b,5]
+print(a in c)
+# True
+
+from dataclasses import dataclass
+
+class obj:
+    def __init__(self,a,b):
+        self.a = a
+        self.b = b
+
+x = obj(1,2)
+y = obj(1,2)
+c = {y:1, 2:2}
+print(x in c)
+# False
+
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class obj:
+    a: int
+    b: int
+
+x = obj(1,2)
+y = obj(1,2)
+c = {y:1, 2:2}
+print(x in c)
+# True
+
+
