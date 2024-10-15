@@ -411,7 +411,8 @@ class Agenda:
         log.debug(f"Before move-down, the index of items are: {self._index}")
         log.debug(f"Before move-down, the index of first not-popped item is: {self._next}")
         assert item in self._index
-        assert self._index[item] < self._next
+        if not self._index[item] < self._next: # no need to move down
+            return
         index = self._index[item]
         move_down(self._items, index)
         for item_ in self._index:
