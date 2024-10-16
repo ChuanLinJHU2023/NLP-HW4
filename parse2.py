@@ -71,6 +71,7 @@ class EarleyChart:
         self.progress = progress
         self.profile: CounterType[str] = Counter()
         self.cols: List[Agenda]
+        self.predicted = set()
         self._run_earley()  # run Earley's algorithm to construct self.cols
 
     def accepted_with_item(self) -> Union[None, Item]:
@@ -126,6 +127,8 @@ class EarleyChart:
 
         For predict, we <don't> need to consider move-down!!! (See B-2 Reprocessing for what is move-down)
         """
+        if (nonterminal, position) in self.predicted:
+            return
         for rule in self.grammar.expansions(nonterminal):
             new_item = Item(rule, dot_position=0, start_position=position)
             self.cols[position].push(new_item)
@@ -136,6 +139,7 @@ class EarleyChart:
 
             log.debug(f"\tPredicted: {new_item} in column {position}")
             self.profile["PREDICT"] += 1
+            self.predicted.add((nonterminal, position))
 
     def _scan(self, item: Item, position: int) -> None:
         """Attach the next word to this item that ends at position,
@@ -214,112 +218,6 @@ class EarleyChart:
         result += " )"
         return result
 
-
-# A dataclass is a class that provides some useful defaults for you. If you define
-# the data that the class should hold, it will automatically make things like an
-# initializer and an equality function.  This is just a shortcut.
-# More info here: https://docs.python.org/3/library/dataclasses.html
-# Using a dataclass here lets us declare that instances are "frozen" (immutable),
-# and therefore can be hashed and used as keys in a dictionary.
-@dataclass(frozen=True)
-class Rule:
-    """
-    A grammar rule has a left-hand side (lhs), a right-hand side (rhs), and a weight.
-
-    >>> r = Rule('S',('NP','VP'),3.14)
-    >>> r
-    S → NP VP
-    >>> r.weight
-    3.14
-    >>> r.weight = 2.718
-    Traceback (most recent call last):
-    dataclasses.FrozenInstanceError: cannot assign to field 'weight'
-    """
-    lhs: str
-    rhs: Tuple[str, ...]
-    weight: float = 0.0
-
-    def __repr__(self) -> str:
-        """Complete string used to show this rule instance at the command line"""
-        # Note: You might want to modify this to include the weight.
-        return f"{self.lhs} → {' '.join(self.rhs)}"
-
-# We particularly want items to be immutable, since they will be hashed and
-# used as keys in a dictionary (for duplicate detection).
-@dataclass(frozen=True)
-class Item:
-    """An item in the Earley parse chart, representing one or more subtrees
-    that could yield a particular substring."""
-    rule: Rule
-    dot_position: int
-    start_position: int
-
-    # We don't store the end_position, which corresponds to the column
-    # that the item is in, although you could store it redundantly for
-    # debugging purposes if you wanted.
-
-    def next_symbol(self) -> Optional[str]:
-        """What's the next, unprocessed symbol (terminal, non-terminal, or None) in this partially matched rule?"""
-        assert 0 <= self.dot_position <= len(self.rule.rhs)
-        if self.dot_position == len(self.rule.rhs):
-            return None
-        else:
-            return self.rule.rhs[self.dot_position]
-
-    def with_dot_advanced(self) -> Item:
-        if self.next_symbol() is None:
-            raise IndexError("Can't advance the dot past the end of the rule")
-        return Item(rule=self.rule, dot_position=self.dot_position + 1, start_position=self.start_position)
-
-    def __repr__(self) -> str:
-        """Human-readable representation string used when printing this item."""
-        # Note: If you revise this class to change what an Item stores, you'll probably want to change this method too.
-        DOT = "·"
-        rhs = list(self.rule.rhs)  # Make a copy.
-        rhs.insert(self.dot_position, DOT)
-        dotted_rule = f"{self.rule.lhs} → {' '.join(rhs)}"
-        return f"({self.start_position}, {dotted_rule})"  # matches notation on slides
-
-Backpointer = Optional[Tuple[Item, int]]
-
-class Tip:
-    """
-    We prepare a Tip object for each Item object.
-    For each item, its tip helps to indicate the weight and backpointers for this item.
-    """
-    def __init__(self, item) -> None:
-        self.item: Item = item    # For what item are we initializing this tip?
-        self.weight: Union[int, None] = None
-        self.backpointers: list[Backpointer] = list()
-
-    def initialize_when_predict(self):
-        # In this case, self.item is an item added to agenda by predict
-        self.weight = self.item.rule.weight
-        assert len(self.backpointers) == self.item.dot_position
-
-    def initialize_when_scan(self, tip_of_scanned_item : Tip):
-        # In this case, self.item is an item added to agenda by scan
-        self.weight = tip_of_scanned_item.weight
-        self.backpointers = tip_of_scanned_item.backpointers + [None] # The backpointer for a terminal is just a None
-        assert len(self.backpointers) == self.item.dot_position
-
-    def initialize_when_attach(self, tip_of_attachment_item : Tip, tip_of_customer_item: Tip, position: int):
-        # In this case, self.item is an item added to agenda by attach
-        assert len(tip_of_attachment_item.item.rule.rhs) == tip_of_attachment_item.item.dot_position == len(tip_of_attachment_item.backpointers) # assure that attachment item is complete
-        self.weight = tip_of_customer_item.weight + tip_of_attachment_item.weight
-        self.backpointers = tip_of_customer_item.backpointers + [(tip_of_attachment_item.item, position)] # The backpointer for a non-terminal is a item that is complete
-        assert len(self.backpointers) == self.item.dot_position
-
-def move_down(lst, i):
-    """
-    Move down the i-th element of the lst
-    >>> lst = [5,8,7,2,3,10]
-    >>> move_down(lst,2)
-    [5, 8, 2, 3, 10, 7]
-    """
-    assert i<len(lst)
-    new_lst = lst[:i] + lst[i+1:] + [lst[i]]
-    return new_lst
 
 class Agenda:
     """An agenda of items that need to be processed.  Newly built items
@@ -411,7 +309,8 @@ class Agenda:
         log.debug(f"Before move-down, the index of items are: {self._index}")
         log.debug(f"Before move-down, the index of first not-popped item is: {self._next}")
         assert item in self._index
-        assert self._index[item] < self._next
+        if not self._index[item] < self._next: # no need to move down
+            return
         index = self._index[item]
         move_down(self._items, index)
         for item_ in self._index:
@@ -428,6 +327,116 @@ class Agenda:
         return self._tips[item]
 
 
+# We particularly want items to be immutable, since they will be hashed and
+# used as keys in a dictionary (for duplicate detection).
+@dataclass(frozen=True)
+class Item:
+    """An item in the Earley parse chart, representing one or more subtrees
+    that could yield a particular substring."""
+    rule: Rule
+    dot_position: int
+    start_position: int
+
+    # We don't store the end_position, which corresponds to the column
+    # that the item is in, although you could store it redundantly for
+    # debugging purposes if you wanted.
+
+    def next_symbol(self) -> Optional[str]:
+        """What's the next, unprocessed symbol (terminal, non-terminal, or None) in this partially matched rule?"""
+        assert 0 <= self.dot_position <= len(self.rule.rhs)
+        if self.dot_position == len(self.rule.rhs):
+            return None
+        else:
+            return self.rule.rhs[self.dot_position]
+
+    def with_dot_advanced(self) -> Item:
+        if self.next_symbol() is None:
+            raise IndexError("Can't advance the dot past the end of the rule")
+        return Item(rule=self.rule, dot_position=self.dot_position + 1, start_position=self.start_position)
+
+    def __repr__(self) -> str:
+        """Human-readable representation string used when printing this item."""
+        # Note: If you revise this class to change what an Item stores, you'll probably want to change this method too.
+        DOT = "·"
+        rhs = list(self.rule.rhs)  # Make a copy.
+        rhs.insert(self.dot_position, DOT)
+        dotted_rule = f"{self.rule.lhs} → {' '.join(rhs)}"
+        return f"({self.start_position}, {dotted_rule})"  # matches notation on slides
+
+
+# A dataclass is a class that provides some useful defaults for you. If you define
+# the data that the class should hold, it will automatically make things like an
+# initializer and an equality function.  This is just a shortcut.
+# More info here: https://docs.python.org/3/library/dataclasses.html
+# Using a dataclass here lets us declare that instances are "frozen" (immutable),
+# and therefore can be hashed and used as keys in a dictionary.
+@dataclass(frozen=True)
+class Rule:
+    """
+    A grammar rule has a left-hand side (lhs), a right-hand side (rhs), and a weight.
+
+    >>> r = Rule('S',('NP','VP'),3.14)
+    >>> r
+    S → NP VP
+    >>> r.weight
+    3.14
+    >>> r.weight = 2.718
+    Traceback (most recent call last):
+    dataclasses.FrozenInstanceError: cannot assign to field 'weight'
+    """
+    lhs: str
+    rhs: Tuple[str, ...]
+    weight: float = 0.0
+
+    def __repr__(self) -> str:
+        """Complete string used to show this rule instance at the command line"""
+        # Note: You might want to modify this to include the weight.
+        return f"{self.lhs} → {' '.join(self.rhs)}"
+
+
+Backpointer = Optional[Tuple[Item, int]]
+
+
+class Tip:
+    """
+    We prepare a Tip object for each Item object.
+    For each item, its tip helps to indicate the weight and backpointers for this item.
+    """
+    def __init__(self, item) -> None:
+        self.item: Item = item    # For what item are we initializing this tip?
+        self.weight: Union[int, None] = None
+        self.backpointers: list[Backpointer] = list()
+
+    def initialize_when_predict(self):
+        # In this case, self.item is an item added to agenda by predict
+        self.weight = self.item.rule.weight
+        assert len(self.backpointers) == self.item.dot_position
+
+    def initialize_when_scan(self, tip_of_scanned_item : Tip):
+        # In this case, self.item is an item added to agenda by scan
+        self.weight = tip_of_scanned_item.weight
+        self.backpointers = tip_of_scanned_item.backpointers + [None] # The backpointer for a terminal is just a None
+        assert len(self.backpointers) == self.item.dot_position
+
+    def initialize_when_attach(self, tip_of_attachment_item : Tip, tip_of_customer_item: Tip, position: int):
+        # In this case, self.item is an item added to agenda by attach
+        assert len(tip_of_attachment_item.item.rule.rhs) == tip_of_attachment_item.item.dot_position == len(tip_of_attachment_item.backpointers) # assure that attachment item is complete
+        self.weight = tip_of_customer_item.weight + tip_of_attachment_item.weight
+        self.backpointers = tip_of_customer_item.backpointers + [(tip_of_attachment_item.item, position)] # The backpointer for a non-terminal is a item that is complete
+        assert len(self.backpointers) == self.item.dot_position
+
+
+def move_down(lst, i):
+    """
+    Move down the i-th element of the lst
+    >>> lst = [5,8,7,2,3,10]
+    >>> move_down(lst,2)
+    [5, 8, 2, 3, 10, 7]
+    """
+    assert i<len(lst)
+    new_lst = lst[:i] + lst[i+1:] + [lst[i]]
+    return new_lst
+
 
 class Grammar:
     """Represents a weighted context-free grammar."""
@@ -437,9 +446,27 @@ class Grammar:
         adding rules from the specified files if any."""
         self.start_symbol = start_symbol
         self._expansions: Dict[str, List[Rule]] = {}  # maps each LHS to the list of rules that expand it
+        self._specialized_vocab = None
+        self._specialized_expansions = None
         # Read the input grammar files
         for file in files:
             self.add_rules_from_file(file)
+
+    def init_specialized_vocab(self, vocab: Iterable[str]) -> None:
+        self._specialized_vocab = set()
+        self._specialized_expansions = dict()
+        for w in vocab:
+            self._specialized_vocab.add(w)
+        for lhs, rules in self._expansions.items():
+            self._specialized_expansions[lhs] = []
+            for i, rule in enumerate(rules):
+                flag = True
+                for w in rule.rhs:
+                    if not self.is_nonterminal(w) and w not in self._specialized_vocab:
+                        flag = False
+                        break
+                if flag:
+                    self._specialized_expansions[lhs].append(rule)
 
     def add_rules_from_file(self, file: Path) -> None:
         """Add rules to this grammar from a file (one rule per line).
@@ -463,7 +490,10 @@ class Grammar:
 
     def expansions(self, lhs: str) -> Iterable[Rule]:
         """Return an iterable collection of all rules with a given lhs"""
-        return self._expansions[lhs]
+        if self._specialized_vocab is None:
+            return self._expansions[lhs]
+        else:
+            return self._specialized_expansions[lhs]
 
     def is_nonterminal(self, symbol: str) -> bool:
         """Is symbol a nonterminal symbol?"""
@@ -488,16 +518,18 @@ def main():
                 # analyze the sentence
                 log.debug("=" * 70)
                 log.debug(f"Parsing sentence: {sentence}")
-                chart = EarleyChart(sentence.split(), grammar, progress=args.progress)
+                sentence = sentence.split()
+                grammar.init_specialized_vocab(sentence)
+                chart = EarleyChart(sentence, grammar, progress=args.progress)
                 final_item = chart.accepted_with_item()
                 log.info(sentence)
                 if final_item is None:
                     log.info("This sentence is rejected!")
                 else:
                     print(chart.pretty_print_item(final_item))
-                    log.info(f"This sentence is accepted with prob {weight_to_prob(chart.cols[-1].find_tip_for_item(final_item).weight)}")
-                    log.info(f"This sentence is accepted with weight {chart.cols[-1].find_tip_for_item(final_item).weight}")
-                print()
+                    weight = chart.cols[-1].find_tip_for_item(final_item).weight
+                    log.info("This sentence is accepted with weight %.5f\n" % weight)
+                    #log.info(f"This sentence is accepted with prob {weight_to_prob(chart.cols[-1].find_tip_for_item(final_item).weight)}")
 
 if __name__ == "__main__":
     import doctest
