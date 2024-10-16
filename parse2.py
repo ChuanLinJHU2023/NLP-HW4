@@ -71,7 +71,6 @@ class EarleyChart:
         self.progress = progress
         self.profile: CounterType[str] = Counter()
         self.cols: List[Agenda]
-        self.predicted = set()
         self._run_earley()  # run Earley's algorithm to construct self.cols
 
     def accepted_with_item(self) -> Union[None, Item]:
@@ -127,8 +126,10 @@ class EarleyChart:
 
         For predict, we <don't> need to consider move-down!!! (See B-2 Reprocessing for what is move-down)
         """
-        if (nonterminal, position) in self.predicted:
-            return
+        if nonterminal in self.cols[position]._next2index and len(self.cols[position]._next2index[nonterminal]) > 1:
+            earliest_id = self.cols[position]._next2index[nonterminal][1]
+            if not self.cols[position].check_validity(earliest_id):
+                return
         for rule in self.grammar.expansions(nonterminal):
             new_item = Item(rule, dot_position=0, start_position=position)
             self.cols[position].push(new_item)
@@ -139,7 +140,6 @@ class EarleyChart:
 
             log.debug(f"\tPredicted: {new_item} in column {position}")
             self.profile["PREDICT"] += 1
-            self.predicted.add((nonterminal, position))
 
     def _scan(self, item: Item, position: int) -> None:
         """Attach the next word to this item that ends at position,
@@ -172,8 +172,12 @@ class EarleyChart:
         For attach, we <do> need to consider move-down!!! (See B-2 Reprocessing for what is move-down)
         """
         mid = item.start_position  # start position of this item = end position of item to its left
-        for customer in self.cols[mid].all():  # could you eliminate this inefficient linear search?
-            if customer.next_symbol() == item.rule.lhs:
+        #for customer in self.cols[mid].all():  # could you eliminate this inefficient linear search?
+        #    if customer.next_symbol() == item.rule.lhs:
+        if item.rule.lhs in self.cols[mid]._next2index:
+            customer_ids = self.cols[mid]._next2index[item.rule.lhs]
+            for customer_id in customer_ids:
+                customer = self.cols[mid][customer_id]
                 new_item = customer.with_dot_advanced()
                 if_old_item_exists = self.cols[position].push(new_item)
 
@@ -249,6 +253,7 @@ class Agenda:
         self._index: Dict[Item, int] = {}  # stores index of an item if it was ever pushed
         self._tips: Dict[Item, Tip] = {} # stores the tip of an item if it was ever pushed
         self._next = 0  # index of first item that has not yet been popped
+        self._next2index: Dict[str, List[int]] = dict()
 
         # Note: There are other possible designs.  For example, self._index doesn't really
         # have to store the index; it could be changed from a dictionary to a set.
@@ -268,6 +273,9 @@ class Agenda:
         if item not in self._index:  # O(1) lookup in hash table
             self._items.append(item)
             self._index[item] = len(self._items) - 1
+            if item.next_symbol() not in self._next2index:
+                self._next2index[item.next_symbol()] = []
+            self._next2index[item.next_symbol()].append(len(self._items) - 1)
         return if_old_item_exists
 
     def pop(self) -> Item:
@@ -288,6 +296,12 @@ class Agenda:
         """Provide a human-readable string REPResentation of this Agenda."""
         next = self._next
         return f"{self.__class__.__name__}({self._items[:next]}; {self._items[next:]})"
+
+    def __getitem__(self, i: int) -> Item:
+        return self._items[i]
+
+    def check_validity(self, i: int) -> bool:
+        return i >= self._next
 
     def update_tip_for_item(self, item: Item, tip: Tip):
         assert item in self._index
