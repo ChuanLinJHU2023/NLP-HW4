@@ -1,1 +1,4 @@
 ./parse.py arith.gr arith.sen | ./prettyprint
+./parse.py papa.gr papa.sen | ./prettyprint
+./parse.py permissive.gr permissive.sen | ./prettyprint
+./parse.py english.gr english.sen | ./prettyprint
