@@ -9,14 +9,16 @@ that reconstructs the highest-probability parse of each given sentence.)
 # This code is hereby released to the public domain.
 
 from __future__ import annotations
+
 import argparse
 import logging
 import math
-import tqdm
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from collections import Counter
 from typing import Counter as CounterType, Iterable, List, Optional, Dict, Tuple
+
+import tqdm
 
 log = logging.getLogger(Path(__file__).stem)  # For usage, see findsim.py in earlier assignment.
 

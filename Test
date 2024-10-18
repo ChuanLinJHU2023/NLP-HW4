@@ -2,3 +2,5 @@
 ./parse.py papa.gr papa.sen | ./prettyprint
 ./parse.py permissive.gr permissive.sen | ./prettyprint
 ./parse.py english.gr english.sen | ./prettyprint
+./parse.py wallstreet.gr wallstreet.sen | ./prettyprint
+./parse.py wallstreet.gr wallstreet.sen | ./prettyprint > wallstreet.par
