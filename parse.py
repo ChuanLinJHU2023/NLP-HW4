@@ -398,7 +398,9 @@ class Agenda:
             self._tips[item] = tip  # Create the tip for existing item
         else:
             old_tip = self._tips[item]
-            if tip.weight < old_tip.weight:
+            # This difference will affect permissive.par!!!!!!!!!!!!!!!!!!
+            # if tip.weight < old_tip.weight:
+            if tip.weight <= old_tip.weight:
                 self._tips[item] = tip # Renew the tip for existing item
                 if_old_item_with_worse_weight = True
         assert len(self._index) == len(self._items)
