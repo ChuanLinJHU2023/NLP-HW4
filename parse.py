@@ -491,14 +491,15 @@ def main():
                 log.debug(f"Parsing sentence: {sentence}")
                 chart = EarleyChart(sentence.split(), grammar, progress=args.progress)
                 final_item = chart.accepted_with_item()
-                log.info(sentence)
+                # log.info(sentence)
                 if final_item is None:
-                    log.info("This sentence is rejected!")
+                    # log.info("This sentence is rejected!")
+                    print("NONE")
                 else:
                     print(chart.pretty_print_item(final_item))
-                    log.info(f"This sentence is accepted with prob {weight_to_prob(chart.cols[-1].find_tip_for_item(final_item).weight)}")
-                    log.info(f"This sentence is accepted with weight {chart.cols[-1].find_tip_for_item(final_item).weight}")
-                print()
+                    print(chart.cols[-1].find_tip_for_item(final_item).weight)
+                    # log.info(f"This sentence is accepted with prob {weight_to_prob(chart.cols[-1].find_tip_for_item(final_item).weight)}")
+                    # log.info(f"This sentence is accepted with weight {chart.cols[-1].find_tip_for_item(final_item).weight}")
 
 if __name__ == "__main__":
     import doctest
