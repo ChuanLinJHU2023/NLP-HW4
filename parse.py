@@ -398,7 +398,9 @@ class Agenda:
             self._tips[item] = tip  # Create the tip for existing item
         else:
             old_tip = self._tips[item]
-            if tip.weight < old_tip.weight:
+            # This difference will affect permissive.par!!!!!!!!!!!!!!!!!!
+            # if tip.weight < old_tip.weight:
+            if tip.weight <= old_tip.weight:
                 self._tips[item] = tip # Renew the tip for existing item
                 if_old_item_with_worse_weight = True
         assert len(self._index) == len(self._items)
@@ -491,14 +493,15 @@ def main():
                 log.debug(f"Parsing sentence: {sentence}")
                 chart = EarleyChart(sentence.split(), grammar, progress=args.progress)
                 final_item = chart.accepted_with_item()
-                log.info(sentence)
+                # log.info(sentence)
                 if final_item is None:
-                    log.info("This sentence is rejected!")
+                    # log.info("This sentence is rejected!")
+                    print("NONE")
                 else:
                     print(chart.pretty_print_item(final_item))
-                    log.info(f"This sentence is accepted with prob {weight_to_prob(chart.cols[-1].find_tip_for_item(final_item).weight)}")
-                    log.info(f"This sentence is accepted with weight {chart.cols[-1].find_tip_for_item(final_item).weight}")
-                print()
+                    print(chart.cols[-1].find_tip_for_item(final_item).weight)
+                    # log.info(f"This sentence is accepted with prob {weight_to_prob(chart.cols[-1].find_tip_for_item(final_item).weight)}")
+                    # log.info(f"This sentence is accepted with weight {chart.cols[-1].find_tip_for_item(final_item).weight}")
 
 if __name__ == "__main__":
     import doctest
