@@ -18,7 +18,6 @@ from pathlib import Path
 from collections import Counter
 from typing import Counter as CounterType, Iterable, List, Optional, Dict, Tuple, Union, final
 
-from sympy.logic.boolalg import Boolean
 
 log = logging.getLogger(Path(__file__).stem)  # For usage, see findsim.py in earlier assignment.
 
