@@ -211,7 +211,7 @@ class EarleyChart:
                 item_for_symbol, pos = tip.backpointers[i]
                 assert item_for_symbol.rule.lhs == symbol
                 result += f" {self.pretty_print_item(item_for_symbol, pos)}"
-        result += " )"
+        result += ")"
         return result
 
 

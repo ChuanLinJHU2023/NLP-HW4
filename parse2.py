@@ -323,7 +323,7 @@ class Agenda:
         log.debug(f"Before move-down, the index of items are: {self._index}")
         log.debug(f"Before move-down, the index of first not-popped item is: {self._next}")
         assert item in self._index
-        if not self._index[item] < self._next: # no need to move down
+        if not self._index[item] <= self._next: # no need to move down
             return
         index = self._index[item]
         move_down(self._items, index)
@@ -539,11 +539,12 @@ def main():
                 log.info(sentence)
                 if final_item is None:
                     log.info("This sentence is rejected!")
+                    print("NONE")
                 else:
                     print(chart.pretty_print_item(final_item))
-                    weight = chart.cols[-1].find_tip_for_item(final_item).weight
-                    log.info("This sentence is accepted with weight %.5f\n" % weight)
-                    #log.info(f"This sentence is accepted with prob {weight_to_prob(chart.cols[-1].find_tip_for_item(final_item).weight)}")
+                    print(chart.cols[-1].find_tip_for_item(final_item).weight)
+                    log.info(f"This sentence is accepted with prob {weight_to_prob(chart.cols[-1].find_tip_for_item(final_item).weight)}")
+                    log.info(f"This sentence is accepted with weight {chart.cols[-1].find_tip_for_item(final_item).weight}")
 
 if __name__ == "__main__":
     import doctest
