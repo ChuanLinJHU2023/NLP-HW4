@@ -303,7 +303,6 @@ class Agenda:
         return i >= self._next
 
     def update_tip_for_item(self, item: Item, tip: Tip):
-        assert item in self._index
         if_old_item_with_worse_weight = False
         if item not in self._tips:
             self._tips[item] = tip  # Create the tip for existing item
@@ -312,16 +311,15 @@ class Agenda:
             if tip.weight < old_tip.weight:
                 self._tips[item] = tip # Renew the tip for existing item
                 if_old_item_with_worse_weight = True
-        assert len(self._index) == len(self._items)
         return if_old_item_with_worse_weight
 
     def move_down_item(self, item: Item):
         # ******Move Down an Item For Reprocessing******* See B.2 for what is reprocessing!!
         # Remember that self._next is the index of first item that has not yet been popped
-        log.debug(f"We are moving down an item {item}")
-        log.debug(f"Before move-down, the index of items are: {self._index}")
-        log.debug(f"Before move-down, the index of first not-popped item is: {self._next}")
-        assert item in self._index
+        #log.debug(f"We are moving down an item {item}")
+        #log.debug(f"Before move-down, the index of items are: {self._index}")
+        #log.debug(f"Before move-down, the index of first not-popped item is: {self._next}")
+        #assert item in self._index
         if not self._index[item] <= self._next: # no need to move down
             return
         index = self._index[item]
@@ -331,12 +329,11 @@ class Agenda:
                 self._index[item_] -= 1
         self._index[item] = len(self._items) - 1
         self._next -= 1 # We need to move up the pointer!
-        assert len(self._index) == len(self._items)
-        log.debug(f"After move-down, the index of items are: {self._index}")
-        log.debug(f"After move-down, the index of first not-popped item : {self._next}")
+        #assert len(self._index) == len(self._items)
+        #log.debug(f"After move-down, the index of items are: {self._index}")
+        #log.debug(f"After move-down, the index of first not-popped item : {self._next}")
 
     def find_tip_for_item(self, item: Item) -> Tip:
-        assert item in self._tips
         return self._tips[item]
 
 
@@ -423,20 +420,20 @@ class Tip:
     def initialize_when_predict(self):
         # In this case, self.item is an item added to agenda by predict
         self.weight = self.item.rule.weight
-        assert len(self.backpointers) == self.item.dot_position
+        #assert len(self.backpointers) == self.item.dot_position
 
     def initialize_when_scan(self, tip_of_scanned_item : Tip):
         # In this case, self.item is an item added to agenda by scan
         self.weight = tip_of_scanned_item.weight
         self.backpointers = tip_of_scanned_item.backpointers + [None] # The backpointer for a terminal is just a None
-        assert len(self.backpointers) == self.item.dot_position
+        #assert len(self.backpointers) == self.item.dot_position
 
     def initialize_when_attach(self, tip_of_attachment_item : Tip, tip_of_customer_item: Tip, position: int):
         # In this case, self.item is an item added to agenda by attach
-        assert len(tip_of_attachment_item.item.rule.rhs) == tip_of_attachment_item.item.dot_position == len(tip_of_attachment_item.backpointers) # assure that attachment item is complete
+        #assert len(tip_of_attachment_item.item.rule.rhs) == tip_of_attachment_item.item.dot_position == len(tip_of_attachment_item.backpointers) # assure that attachment item is complete
         self.weight = tip_of_customer_item.weight + tip_of_attachment_item.weight
         self.backpointers = tip_of_customer_item.backpointers + [(tip_of_attachment_item.item, position)] # The backpointer for a non-terminal is a item that is complete
-        assert len(self.backpointers) == self.item.dot_position
+        #assert len(self.backpointers) == self.item.dot_position
 
 
 def move_down(lst, i):
@@ -446,7 +443,7 @@ def move_down(lst, i):
     >>> move_down(lst,2)
     [5, 8, 2, 3, 10, 7]
     """
-    assert i<len(lst)
+    # assert i<len(lst)
     new_lst = lst[:i] + lst[i+1:] + [lst[i]]
     return new_lst
 
