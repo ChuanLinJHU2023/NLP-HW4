@@ -196,18 +196,18 @@ class EarleyChart:
         tip = self.find_tip_for_item_globally(item, position)
         assert item.dot_position == len(item.rule.rhs) == len(tip.backpointers)
         lhs = item.rule.lhs
-        result = "(" + f"{lhs}"
+        result = "(" + f" {lhs}"
         for i in range(len(item.rule.rhs)):
             symbol = item.rule.rhs[i]
             if not self.grammar.is_nonterminal(symbol):
                 # Terminal
-                result += f"{symbol}"
+                result += f" {symbol}"
             else:
                 # Nonterminal, print recursively
                 item_for_symbol, pos = tip.backpointers[i]
                 assert item_for_symbol.rule.lhs == symbol
-                result += f"{self.pretty_print_item(item_for_symbol, pos)}"
-        result += ")"
+                result += f" {self.pretty_print_item(item_for_symbol, pos)}"
+        result += " )"
         return result
 
 
@@ -350,6 +350,9 @@ class Agenda:
         """Returns number of items that are still waiting to be popped.
         Enables `len(my_agenda)`."""
         return len(self._items) - self._next + len(self._need_reprocess)
+    
+    def __getitem__(self, i: int) -> Item:
+        return self._items[i]
 
     def push(self, item: Item) -> bool:
         """Add (enqueue) the item, unless it was previously added."""
