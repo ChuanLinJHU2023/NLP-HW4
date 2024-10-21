@@ -109,15 +109,15 @@ class EarleyChart:
                 next = item.next_symbol()
                 if next is None:
                     # Attach this complete constituent to its customers
-                    log.debug(f"{item} => ATTACH")
+                    #log.debug(f"{item} => ATTACH")
                     self._attach(item, i)
                 elif self.grammar.is_nonterminal(next):
                     # Predict the nonterminal after the dot
-                    log.debug(f"{item} => PREDICT")
+                    #log.debug(f"{item} => PREDICT")
                     self._predict(next, i)
                 else:
                     # Try to scan the terminal after the dot
-                    log.debug(f"{item} => SCAN")
+                    #log.debug(f"{item} => SCAN")
                     self._scan(item, i)
 
     def _predict(self, nonterminal: str, position: int) -> None:
@@ -184,10 +184,7 @@ class EarleyChart:
                 tip_of_attachment_item = self.cols[position].find_tip_for_item(item)
                 tip_of_customer_item = self.cols[mid].find_tip_for_item(customer)
                 new_tip.initialize_when_attach(tip_of_attachment_item, tip_of_customer_item, position)
-                if_old_item_with_worse_weight = self.cols[position].update_tip_for_item(new_item, new_tip)
-
-                if if_old_item_exists and if_old_item_with_worse_weight:
-                    self.cols[position].move_down_item(new_item)
+                self.cols[position].update_tip_for_item(new_item, new_tip)
 
                 log.debug(f"\tAttached to get: {new_item} in column {position}")
                 self.profile["ATTACH"] += 1
@@ -195,11 +192,11 @@ class EarleyChart:
     def find_tip_for_item_globally(self, item: Item, postion: Optional[int] = None) -> Tip:
         if postion is not None:
             agenda = self.cols[postion]
-            if item in agenda.all():
+            if item in agenda._index:
                 return agenda.find_tip_for_item(item)
         else:
             for i, agenda in enumerate(self.cols[::-1]):
-                if item in agenda.all():
+                if item in agenda._index:
                     return agenda.find_tip_for_item(item)
         raise ValueError
 
@@ -218,7 +215,7 @@ class EarleyChart:
                 item_for_symbol, pos = tip.backpointers[i]
                 assert item_for_symbol.rule.lhs == symbol
                 result += f" {self.pretty_print_item(item_for_symbol, pos)}"
-        result += " )"
+        result += ")"
         return result
 
 
@@ -253,6 +250,7 @@ class Agenda:
         self._tips: Dict[Item, Tip] = {} # stores the tip of an item if it was ever pushed
         self._next = 0  # index of first item that has not yet been popped
         self._next2index: Dict[str, List[int]] = dict()
+        self._need_reprocess = set()
 
         # Note: There are other possible designs.  For example, self._index doesn't really
         # have to store the index; it could be changed from a dictionary to a set.
@@ -264,12 +262,12 @@ class Agenda:
     def __len__(self) -> int:
         """Returns number of items that are still waiting to be popped.
         Enables `len(my_agenda)`."""
-        return len(self._items) - self._next
+        return len(self._items) - self._next + len(self._need_reprocess)
 
     def push(self, item: Item) -> bool:
         """Add (enqueue) the item, unless it was previously added."""
         if_old_item_exists = item in self._index
-        if item not in self._index:  # O(1) lookup in hash table
+        if not if_old_item_exists:  # O(1) lookup in hash table
             self._items.append(item)
             self._index[item] = len(self._items) - 1
             if item.next_symbol() not in self._next2index:
@@ -280,10 +278,14 @@ class Agenda:
     def pop(self) -> Item:
         """Returns one of the items that was waiting to be popped (dequeued).
         Raises IndexError if there are no items waiting."""
-        if len(self) == 0:
+        if len(self) <= 0:
             raise IndexError
-        item = self._items[self._next]
-        self._next += 1
+        if self._next < len(self._items):
+            item = self._items[self._next]
+            self._next += 1
+        else:
+            index = self._need_reprocess.pop()
+            item = self._items[index]
         return item
 
     def all(self) -> Iterable[Item]:
@@ -300,18 +302,7 @@ class Agenda:
         return self._items[i]
 
     def check_validity(self, i: int) -> bool:
-        return i >= self._next
-
-    def update_tip_for_item(self, item: Item, tip: Tip):
-        if_old_item_with_worse_weight = False
-        if item not in self._tips:
-            self._tips[item] = tip  # Create the tip for existing item
-        else:
-            old_tip = self._tips[item]
-            if tip.weight < old_tip.weight:
-                self._tips[item] = tip # Renew the tip for existing item
-                if_old_item_with_worse_weight = True
-        return if_old_item_with_worse_weight
+        return i >= self._next or i in self._need_reprocess
 
     def move_down_item(self, item: Item):
         # ******Move Down an Item For Reprocessing******* See B.2 for what is reprocessing!!
@@ -320,18 +311,29 @@ class Agenda:
         #log.debug(f"Before move-down, the index of items are: {self._index}")
         #log.debug(f"Before move-down, the index of first not-popped item is: {self._next}")
         #assert item in self._index
-        if not self._index[item] <= self._next: # no need to move down
-            return
         index = self._index[item]
+        if not self.check_validity(index): # no need to move down
+            self._need_reprocess.add(index)
+        """
         move_down(self._items, index)
         for item_ in self._index:
             if self._index[item_] > index:
                 self._index[item_] -= 1
         self._index[item] = len(self._items) - 1
         self._next -= 1 # We need to move up the pointer!
+        """
         #assert len(self._index) == len(self._items)
         #log.debug(f"After move-down, the index of items are: {self._index}")
         #log.debug(f"After move-down, the index of first not-popped item : {self._next}")
+
+    def update_tip_for_item(self, item: Item, tip: Tip):
+        if item not in self._tips:
+            self._tips[item] = tip  # Create the tip for existing item
+        else:
+            old_tip = self._tips[item]
+            if tip.weight < old_tip.weight:
+                self._tips[item] = tip # Renew the tip for existing item
+                self.move_down_item(item)
 
     def find_tip_for_item(self, item: Item) -> Tip:
         return self._tips[item]
@@ -532,15 +534,15 @@ def main():
                 grammar.init_specialized_vocab(sentence)
                 chart = EarleyChart(sentence, grammar, progress=args.progress)
                 final_item = chart.accepted_with_item()
-                log.info(sentence)
+                #log.info(sentence)
                 if final_item is None:
-                    log.info("This sentence is rejected!")
+                    #log.info("This sentence is rejected!")
                     print("NONE")
                 else:
                     print(chart.pretty_print_item(final_item))
                     print(chart.cols[-1].find_tip_for_item(final_item).weight)
-                    log.info(f"This sentence is accepted with prob {weight_to_prob(chart.cols[-1].find_tip_for_item(final_item).weight)}")
-                    log.info(f"This sentence is accepted with weight {chart.cols[-1].find_tip_for_item(final_item).weight}")
+                    #log.info(f"This sentence is accepted with prob {weight_to_prob(chart.cols[-1].find_tip_for_item(final_item).weight)}")
+                    #log.info(f"This sentence is accepted with weight {chart.cols[-1].find_tip_for_item(final_item).weight}")
 
 if __name__ == "__main__":
     import doctest
