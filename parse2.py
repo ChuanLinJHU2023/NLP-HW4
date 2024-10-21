@@ -307,24 +307,9 @@ class Agenda:
     def move_down_item(self, item: Item):
         # ******Move Down an Item For Reprocessing******* See B.2 for what is reprocessing!!
         # Remember that self._next is the index of first item that has not yet been popped
-        #log.debug(f"We are moving down an item {item}")
-        #log.debug(f"Before move-down, the index of items are: {self._index}")
-        #log.debug(f"Before move-down, the index of first not-popped item is: {self._next}")
-        #assert item in self._index
         index = self._index[item]
-        if not self.check_validity(index): # no need to move down
+        if not self.check_validity(index):
             self._need_reprocess.add(index)
-        """
-        move_down(self._items, index)
-        for item_ in self._index:
-            if self._index[item_] > index:
-                self._index[item_] -= 1
-        self._index[item] = len(self._items) - 1
-        self._next -= 1 # We need to move up the pointer!
-        """
-        #assert len(self._index) == len(self._items)
-        #log.debug(f"After move-down, the index of items are: {self._index}")
-        #log.debug(f"After move-down, the index of first not-popped item : {self._next}")
 
     def update_tip_for_item(self, item: Item, tip: Tip):
         if item not in self._tips:
@@ -438,18 +423,6 @@ class Tip:
         #assert len(self.backpointers) == self.item.dot_position
 
 
-def move_down(lst, i):
-    """
-    Move down the i-th element of the lst
-    >>> lst = [5,8,7,2,3,10]
-    >>> move_down(lst,2)
-    [5, 8, 2, 3, 10, 7]
-    """
-    # assert i<len(lst)
-    new_lst = lst[:i] + lst[i+1:] + [lst[i]]
-    return new_lst
-
-
 class Grammar:
     """Represents a weighted context-free grammar."""
 
@@ -536,13 +509,11 @@ def main():
                 final_item = chart.accepted_with_item()
                 #log.info(sentence)
                 if final_item is None:
-                    #log.info("This sentence is rejected!")
                     print("NONE")
                 else:
                     print(chart.pretty_print_item(final_item))
                     print(chart.cols[-1].find_tip_for_item(final_item).weight)
-                    #log.info(f"This sentence is accepted with prob {weight_to_prob(chart.cols[-1].find_tip_for_item(final_item).weight)}")
-                    #log.info(f"This sentence is accepted with weight {chart.cols[-1].find_tip_for_item(final_item).weight}")
+                    log.info(f"This sentence is accepted with weight {chart.cols[-1].find_tip_for_item(final_item).weight}")
 
 if __name__ == "__main__":
     import doctest

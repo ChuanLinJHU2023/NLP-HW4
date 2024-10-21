@@ -176,10 +176,7 @@ class EarleyChart:
                 tip_of_attachment_item = self.cols[position].find_tip_for_item(item)
                 tip_of_customer_item = self.cols[mid].find_tip_for_item(customer)
                 new_tip.initialize_when_attach(tip_of_attachment_item, tip_of_customer_item, position)
-                if_old_item_with_worse_weight = self.cols[position].update_tip_for_item(new_item, new_tip)
-
-                if if_old_item_exists and if_old_item_with_worse_weight:
-                    self.cols[position].move_down_item(new_item)
+                self.cols[position].update_tip_for_item(new_item, new_tip)
 
                 log.debug(f"\tAttached to get: {new_item} in column {position}")
                 self.profile["ATTACH"] += 1
@@ -309,16 +306,6 @@ class Tip:
         self.backpointers = tip_of_customer_item.backpointers + [(tip_of_attachment_item.item, position)] # The backpointer for a non-terminal is a item that is complete
         assert len(self.backpointers) == self.item.dot_position
 
-def move_down(lst, i):
-    """
-    Move down the i-th element of the lst
-    >>> lst = [5,8,7,2,3,10]
-    >>> move_down(lst,2)
-    [5, 8, 2, 3, 10, 7]
-    """
-    assert i<len(lst)
-    new_lst = lst[:i] + lst[i+1:] + [lst[i]]
-    return new_lst
 
 class Agenda:
     """An agenda of items that need to be processed.  Newly built items
@@ -390,43 +377,26 @@ class Agenda:
         next = self._next
         return f"{self.__class__.__name__}({self._items[:next]}; {self._items[next:]})"
 
-    def update_tip_for_item(self, item: Item, tip: Tip):
-        assert item in self._index
-        if_old_item_with_worse_weight = False
-        if item not in self._tips:
-            self._tips[item] = tip  # Create the tip for existing item
-        else:
-            old_tip = self._tips[item]
-            # This difference will affect permissive.par!!!!!!!!!!!!!!!!!!
-            # if tip.weight < old_tip.weight:
-            if tip.weight <= old_tip.weight:
-                self._tips[item] = tip # Renew the tip for existing item
-                if_old_item_with_worse_weight = True
-        assert len(self._index) == len(self._items)
-        return if_old_item_with_worse_weight
+    def check_validity(self, i: int) -> bool:
+        return i >= self._next or i in self._need_reprocess
 
     def move_down_item(self, item: Item):
         # ******Move Down an Item For Reprocessing******* See B.2 for what is reprocessing!!
         # Remember that self._next is the index of first item that has not yet been popped
-        log.debug(f"We are moving down an item {item}")
-        log.debug(f"Before move-down, the index of items are: {self._index}")
-        log.debug(f"Before move-down, the index of first not-popped item is: {self._next}")
-        assert item in self._index
-        if not self._index[item] < self._next: # no need to move down
-            return
         index = self._index[item]
-        move_down(self._items, index)
-        for item_ in self._index:
-            if self._index[item_] > index:
-                self._index[item_] -= 1
-        self._index[item] = len(self._items) - 1
-        self._next -= 1 # We need to move up the pointer!
-        assert len(self._index) == len(self._items)
-        log.debug(f"After move-down, the index of items are: {self._index}")
-        log.debug(f"After move-down, the index of first not-popped item : {self._next}")
+        if not self.check_validity(index):
+            self._need_reprocess.add(index)
+
+    def update_tip_for_item(self, item: Item, tip: Tip):
+        if item not in self._tips:
+            self._tips[item] = tip  # Create the tip for existing item
+        else:
+            old_tip = self._tips[item]
+            if tip.weight < old_tip.weight:
+                self._tips[item] = tip # Renew the tip for existing item
+                self.move_down_item(item)
 
     def find_tip_for_item(self, item: Item) -> Tip:
-        assert item in self._tips
         return self._tips[item]
 
 
