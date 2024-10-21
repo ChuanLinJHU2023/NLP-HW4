@@ -204,7 +204,7 @@ class EarleyChart:
         tip = self.find_tip_for_item_globally(item, position)
         assert item.dot_position == len(item.rule.rhs) == len(tip.backpointers)
         lhs = item.rule.lhs
-        result = "(" + f"{lhs}"
+        result = "(" + f" {lhs}"
         for i in range(len(item.rule.rhs)):
             symbol = item.rule.rhs[i]
             if not self.grammar.is_nonterminal(symbol):
@@ -215,7 +215,7 @@ class EarleyChart:
                 item_for_symbol, pos = tip.backpointers[i]
                 assert item_for_symbol.rule.lhs == symbol
                 result += f" {self.pretty_print_item(item_for_symbol, pos)}"
-        result += ")"
+        result += " )"
         return result
 
 
