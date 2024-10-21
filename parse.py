@@ -196,17 +196,17 @@ class EarleyChart:
         tip = self.find_tip_for_item_globally(item, position)
         assert item.dot_position == len(item.rule.rhs) == len(tip.backpointers)
         lhs = item.rule.lhs
-        result = "(" + f" {lhs}"
+        result = "(" + f"{lhs}"
         for i in range(len(item.rule.rhs)):
             symbol = item.rule.rhs[i]
             if not self.grammar.is_nonterminal(symbol):
                 # Terminal
-                result += f" {symbol}"
+                result += f"{symbol}"
             else:
                 # Nonterminal, print recursively
                 item_for_symbol, pos = tip.backpointers[i]
                 assert item_for_symbol.rule.lhs == symbol
-                result += f" {self.pretty_print_item(item_for_symbol, pos)}"
+                result += f"{self.pretty_print_item(item_for_symbol, pos)}"
         result += ")"
         return result
 
@@ -337,6 +337,7 @@ class Agenda:
         self._index: Dict[Item, int] = {}  # stores index of an item if it was ever pushed
         self._tips: Dict[Item, Tip] = {} # stores the tip of an item if it was ever pushed
         self._next = 0  # index of first item that has not yet been popped
+        self._need_reprocess = set()
 
         # Note: There are other possible designs.  For example, self._index doesn't really
         # have to store the index; it could be changed from a dictionary to a set.
@@ -348,12 +349,12 @@ class Agenda:
     def __len__(self) -> int:
         """Returns number of items that are still waiting to be popped.
         Enables `len(my_agenda)`."""
-        return len(self._items) - self._next
+        return len(self._items) - self._next + len(self._need_reprocess)
 
     def push(self, item: Item) -> bool:
         """Add (enqueue) the item, unless it was previously added."""
         if_old_item_exists = item in self._index
-        if item not in self._index:  # O(1) lookup in hash table
+        if not if_old_item_exists:  # O(1) lookup in hash table
             self._items.append(item)
             self._index[item] = len(self._items) - 1
         return if_old_item_exists
@@ -361,10 +362,14 @@ class Agenda:
     def pop(self) -> Item:
         """Returns one of the items that was waiting to be popped (dequeued).
         Raises IndexError if there are no items waiting."""
-        if len(self) == 0:
+        if len(self) <= 0:
             raise IndexError
-        item = self._items[self._next]
-        self._next += 1
+        if self._next < len(self._items):
+            item = self._items[self._next]
+            self._next += 1
+        else:
+            index = self._need_reprocess.pop()
+            item = self._items[index]
         return item
 
     def all(self) -> Iterable[Item]:
